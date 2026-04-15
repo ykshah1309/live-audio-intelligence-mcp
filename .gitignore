@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE / editor
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime
+*.log
+lai_*/
+chunk_*.wav
+
+# Whisper model cache
+models/
+*.bin
+
+# PyPI / build artifacts
+*.tar.gz
+*.whl
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
