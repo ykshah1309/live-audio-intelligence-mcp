@@ -6,7 +6,8 @@ temp dir as if the StreamManager had produced it, and directly exercises the
 prosody analyzer + transcriber on it to validate the pipeline end to end.
 
 Run:
-    .venv/Scripts/python.exe scripts/smoke_test.py
+    python scripts/smoke_test.py
+(activate your venv first so `python` is the one with the project installed)
 """
 
 from __future__ import annotations
@@ -115,10 +116,7 @@ def test_transcriber_direct() -> None:
 async def test_mcp_protocol() -> None:
     """Spawn server as subprocess, perform MCP handshake, list tools."""
     print("\n[4] MCP protocol — subprocess handshake")
-    server_cmd = [
-        str(ROOT / ".venv" / "Scripts" / "python.exe"),
-        "-m", "live_audio_intelligence_mcp",
-    ]
+    server_cmd = [sys.executable, "-m", "live_audio_intelligence_mcp"]
     env = dict(os.environ)
     proc = await asyncio.create_subprocess_exec(
         *server_cmd,

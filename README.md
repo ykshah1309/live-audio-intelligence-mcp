@@ -2,15 +2,18 @@
 
 <!-- mcp-name: io.github.ykshah1309/live-audio-intelligence-mcp -->
 
-**Institutional-grade MCP server for live financial webcast transcription and vocal stress analysis.**
+**MCP server for live financial webcast transcription and heuristic vocal stress analysis.**
 
 Turns any live webcast URL (earnings calls, CNBC, investor days) into a real-time
 pipeline that feeds an LLM two things simultaneously:
 
 1. A **rolling transcript** via `faster-whisper` (CPU, int8).
-2. A **vocal stress score (0–100)** derived from F0 pitch jitter, hesitation
-   ratio, and voiced-frame fraction — prosodic features correlated with
-   executive nervousness, evasion, and guidance risk.
+2. A **heuristic vocal stress score (0–100)** derived from F0 pitch jitter,
+   hesitation ratio, and voiced-frame fraction. These prosodic features are
+   well-established correlates of speaker arousal in the vocal-analysis
+   literature; their composition into the score below is heuristic and has
+   **not** been empirically validated against market outcomes. Treat it as a
+   coarse signal, not an oracle.
 
 Built on the [Model Context Protocol](https://modelcontextprotocol.io). Exposes
 4 tools over stdio; drop it into Claude Desktop, Claude Code, or any MCP client.
@@ -101,9 +104,17 @@ claude mcp add live-audio-intelligence -- live-audio-intelligence-mcp
 | 75–100 | High stress — potential market-moving signal |
 
 Composite of:
-- **Pitch jitter** (coefficient of variation of F0) — 50% weight
-- **Hesitation ratio** (fraction of audio in pauses > 400 ms) — 35% weight
+- **Pitch jitter** (coefficient of variation of F0) — 50% weight, saturating at jitter = 0.12
+- **Hesitation ratio** (fraction of audio in pauses > 400 ms) — 35% weight, saturating at 0.30
 - **Unvoiced fraction** (speaker trailing off) — 15% weight
+
+The three features are literature-backed correlates of speaker arousal (see
+pYIN for F0 tracking, and the broad "disfluency is a correlate of cognitive
+load" line of work). The *weights* and *saturation points* are hand-picked
+defaults, chosen so that a calm speaker scores in the 0–20 band on clean
+studio audio and visibly stressed speech scores ≥ 45 — they are not fit to any
+labeled dataset. Consumers who care about absolute numbers should recalibrate
+thresholds against their own recordings.
 
 ### Low-SNR mode
 
@@ -148,7 +159,7 @@ to threads via `asyncio.to_thread` so the MCP event loop stays responsive.
 ## Development
 
 ```bash
-git clone https://github.com/live-audio-intelligence/live-audio-intelligence-mcp
+git clone https://github.com/ykshah1309/live-audio-intelligence-mcp
 cd live-audio-intelligence-mcp
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate

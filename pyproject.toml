@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "live-audio-intelligence-mcp"
-version = "0.1.1"
+version = "0.1.2"
 description = "Institutional-grade MCP server for live financial webcast transcription and vocal stress analysis"
 readme = "README.md"
 license = "MIT"
@@ -53,3 +53,15 @@ live-audio-intelligence-mcp = "live_audio_intelligence_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/live_audio_intelligence_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/scripts",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+    "/requirements.txt",
+    "/server.json",
+]

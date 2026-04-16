@@ -20,10 +20,7 @@ LIVE_URL = "https://download.samplelib.com/mp3/sample-15s.mp3"
 
 
 async def main() -> None:
-    server_cmd = [
-        str(ROOT / ".venv" / "Scripts" / "python.exe"),
-        "-m", "live_audio_intelligence_mcp",
-    ]
+    server_cmd = [sys.executable, "-m", "live_audio_intelligence_mcp"]
     env = dict(os.environ)
     proc = await asyncio.create_subprocess_exec(
         *server_cmd,

@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 from mcp.server.fastmcp import Context, FastMCP
 
 from .audio_streamer import StreamManager
+from .exceptions import UnknownStreamError
 from .prosody_analyzer import StressResult, analyze_multiple_chunks
 from .transcriber import Transcriber
 
@@ -297,7 +298,7 @@ async def analyze_speaker_stress(
 
     state = app.stream_manager.get_state(stream_id)
     if state is None:
-        raise ValueError(f"No active stream with id: {stream_id}")
+        raise UnknownStreamError(f"No active stream with id: {stream_id}")
 
     # Collect chunk files that fall within the time window
     cutoff = time.time() - time_window_seconds
@@ -364,7 +365,7 @@ async def stop_monitor(
     app.transcriber.remove_transcript(stream_id)
 
     if not stopped:
-        raise ValueError(f"No active stream with id: {stream_id}")
+        raise UnknownStreamError(f"No active stream with id: {stream_id}")
 
     await ctx.info(f"Stream {stream_id} stopped after {duration:.0f}s")
     return StopResult(

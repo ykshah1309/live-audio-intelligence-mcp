@@ -22,6 +22,12 @@ from pathlib import Path
 
 import yt_dlp
 
+from .exceptions import (
+    InvalidStreamURLError,
+    StreamLimitExceededError,
+    StreamStartError,
+)
+
 
 def _log(msg: str) -> None:
     """All output goes to stderr — stdout is reserved for MCP JSON-RPC."""
@@ -68,10 +74,21 @@ class StreamManager:
     CHUNK_DURATION = 15  # seconds
     OVERLAP = 3  # seconds of overlap between consecutive chunks
     SAMPLE_RATE = 16000  # 16kHz mono — optimal for Whisper
+    # Hard cap on concurrent streams. Each active stream holds an ffmpeg +
+    # yt-dlp process, a temp dir, and a thread — uncapped concurrency is an
+    # easy DoS vector. Override via env var for high-throughput deployments.
+    DEFAULT_MAX_CONCURRENT_STREAMS = 4
 
-    def __init__(self) -> None:
+    def __init__(self, max_concurrent_streams: int | None = None) -> None:
         self._streams: dict[str, StreamState] = {}
         self._lock = threading.Lock()
+        env_cap = os.environ.get("LAI_MAX_CONCURRENT_STREAMS")
+        resolved = (
+            max_concurrent_streams
+            if max_concurrent_streams is not None
+            else (int(env_cap) if env_cap and env_cap.isdigit() else self.DEFAULT_MAX_CONCURRENT_STREAMS)
+        )
+        self._max_concurrent = max(1, resolved)
 
     @property
     def active_streams(self) -> list[str]:
@@ -97,8 +114,20 @@ class StreamManager:
 
         Returns a unique stream_id for subsequent operations.
         """
+        # Cheap syntactic validation before hitting the network or spawning
+        # yt-dlp — rejects obvious garbage, local file: URIs, and non-http
+        # schemes that we don't want a subprocess touching.
+        self._validate_url_syntax(url)
+
+        with self._lock:
+            if len(self._streams) >= self._max_concurrent:
+                raise StreamLimitExceededError(
+                    f"Max concurrent streams reached ({self._max_concurrent}). "
+                    f"Stop an existing stream before starting a new one."
+                )
+
         stream_id = uuid.uuid4().hex[:12]
-        # Quick validation pass — fail fast if yt-dlp can't resolve the URL.
+        # Semantic validation — fail fast if yt-dlp can't resolve the URL.
         # We don't use the resolved URL directly because for DASH / fragmented
         # streams (YouTube, Twitch, live TV) ffmpeg can't follow the format
         # without yt-dlp's fragment muxer. Instead we pipe yt-dlp's stdout
@@ -176,6 +205,27 @@ class StreamManager:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _validate_url_syntax(url: str) -> None:
+        """Reject obviously bad URLs before touching the network.
+
+        Accepts only http:// and https://. Rejects file://, data://, javascript:,
+        ftp://, and anything else that could coax yt-dlp / ffmpeg into doing
+        something surprising (e.g. reading local files).
+        """
+        from urllib.parse import urlparse
+
+        if not isinstance(url, str) or not url.strip():
+            raise InvalidStreamURLError("URL must be a non-empty string.")
+        parsed = urlparse(url.strip())
+        if parsed.scheme not in ("http", "https"):
+            raise InvalidStreamURLError(
+                f"URL scheme {parsed.scheme!r} is not supported. "
+                "Only http:// and https:// are accepted."
+            )
+        if not parsed.netloc:
+            raise InvalidStreamURLError(f"URL has no host: {url!r}")
+
+    @staticmethod
     def _validate_url(url: str) -> None:
         """Fail fast with a clear error if yt-dlp can't resolve the URL.
 
@@ -195,10 +245,13 @@ class StreamManager:
                 "error": lambda self, msg: _log(f"yt-dlp err: {msg}"),
             })(),
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if info is None:
-                raise RuntimeError(f"yt-dlp returned no info for: {url}")
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except yt_dlp.utils.DownloadError as exc:
+            raise InvalidStreamURLError(f"yt-dlp could not resolve URL: {exc}") from exc
+        if info is None:
+            raise InvalidStreamURLError(f"yt-dlp returned no info for: {url}")
 
     def _chunking_loop(self, state: StreamState) -> None:
         """Background thread: runs yt-dlp → ffmpeg and slices output into chunks.
