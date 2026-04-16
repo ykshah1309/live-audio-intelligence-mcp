@@ -33,19 +33,69 @@ stressed did they sound saying it?"* in the same conversation.
 
 ## Install
 
-Requires **Python ≥ 3.10** and **ffmpeg** on your PATH.
+### 1. System prerequisite — FFmpeg
+
+FFmpeg is a **system binary**, not a Python package. The `ffmpeg-python`
+wrapper is *not* a dependency here — we drive the binary directly via
+`subprocess`. You must install it yourself.
+
+**macOS** (Homebrew):
 
 ```bash
-pip install live-audio-intelligence-mcp
+brew install ffmpeg
 ```
 
-Verify ffmpeg:
+**Linux** (Debian / Ubuntu):
+
+```bash
+sudo apt-get update && sudo apt-get install -y ffmpeg
+```
+
+**Linux** (Fedora / RHEL):
+
+```bash
+sudo dnf install -y ffmpeg
+```
+
+**Windows** — choose one:
+
+```powershell
+# Option A — winget (Windows 10/11)
+winget install --id=Gyan.FFmpeg -e
+
+# Option B — Chocolatey
+choco install ffmpeg
+
+# Option C — Scoop
+scoop install ffmpeg
+```
+
+Confirm it's on your PATH:
 
 ```bash
 ffmpeg -version
 ```
 
-The first run will download the `faster-whisper base.en` model (~140 MB).
+If the command errors with "not found", reopen the terminal (PATH changes
+don't propagate to already-open shells) or add the ffmpeg `bin/` directory
+to your PATH manually.
+
+### 2. Python package
+
+Requires **Python ≥ 3.10**.
+
+```bash
+pip install live-audio-intelligence-mcp
+```
+
+Or run directly without installing with `uv`:
+
+```bash
+uvx live-audio-intelligence-mcp
+```
+
+The first run will download the `faster-whisper base.en` model (~140 MB) from
+Hugging Face and cache it under `~/.cache/huggingface/`.
 
 ---
 
@@ -116,12 +166,31 @@ studio audio and visibly stressed speech scores ≥ 45 — they are not fit to a
 labeled dataset. Consumers who care about absolute numbers should recalibrate
 thresholds against their own recordings.
 
+A synthetic-audio calibration harness lives at
+[scripts/validate_stress_score.py](scripts/validate_stress_score.py). It
+generates controlled audio (smooth sine, jittered pitch, silence-padded
+speech) and asserts that the score responds in the expected direction. This
+is *calibration evidence*, not market-outcome validation.
+
 ### Low-SNR mode
 
 For speakerphone audio (most earnings Q&A), pass `disable_vad=true` to
 `monitor_live_stream`. Silero VAD tends to aggressively classify muddy
 conference-call speech as silence; disabling it preserves more of the speech
 at the cost of transcribing a bit more ambient noise.
+
+### Concurrency limits
+
+By default the server caps concurrent streams at 4 (each stream holds an
+ffmpeg subprocess, a yt-dlp subprocess, a thread, and a temp directory).
+Override via env var for high-throughput deployments:
+
+```bash
+LAI_MAX_CONCURRENT_STREAMS=16 live-audio-intelligence-mcp
+```
+
+Exceeding the cap raises `StreamLimitExceededError` rather than silently
+queuing.
 
 ---
 
@@ -163,11 +232,64 @@ git clone https://github.com/ykshah1309/live-audio-intelligence-mcp
 cd live-audio-intelligence-mcp
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -e .
+pip install -e ".[dev]"
+pytest
 live-audio-intelligence-mcp
 ```
 
+### Running the tests
+
+The pytest suite in [tests/](tests/) covers the pure-Python logic that
+doesn't require network or ffmpeg:
+
+- URL syntactic validation (scheme allow-list, host presence)
+- Concurrency-cap enforcement in `StreamManager`
+- Custom exception hierarchy (backward-compat with `ValueError` / `RuntimeError`)
+- Prosody analyzer on synthetic audio (sine tone, silence, jittered pitch)
+
+```bash
+pytest -q
+```
+
+### Calibration benchmark
+
+```bash
+python scripts/validate_stress_score.py
+```
+
+This generates synthetic audio with known acoustic properties and verifies
+the stress score responds in the expected direction. It's a sanity check
+for the weighting heuristics — not a replacement for empirical validation
+against real earnings-call outcomes.
+
 ---
+
+## Troubleshooting
+
+**`ffmpeg: command not found`** — ffmpeg isn't on PATH. See the install
+section above. On Windows, reopen your terminal after installing.
+
+**`yt-dlp could not resolve URL`** — The site isn't supported by yt-dlp
+or the URL is malformed. Test with `yt-dlp -F <url>` from the command
+line; if that fails, the server will too.
+
+**Whisper downloads hang on first run** — The ~140 MB model download goes
+to `~/.cache/huggingface/`. Check your network and Hugging Face access.
+
+**"Insufficient voiced frames"** in stress output — The audio window is
+mostly silence or noise. Usually means the stream is still buffering;
+wait 30s and retry. For speakerphone Q&A, start the monitor with
+`disable_vad=true`.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
