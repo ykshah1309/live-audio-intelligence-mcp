@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.ykshah1309/live-audio-intelligence-mcp",
+  "title": "Live Audio Intelligence",
+  "description": "Live webcast transcription + vocal stress analysis (F0 jitter, hesitation) for earnings calls.",
+  "version": "0.1.1",
+  "repository": {
+    "url": "https://github.com/ykshah1309/live-audio-intelligence-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/ykshah1309/live-audio-intelligence-mcp",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "live-audio-intelligence-mcp",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

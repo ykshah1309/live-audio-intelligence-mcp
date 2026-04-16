@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "live-audio-intelligence-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "Institutional-grade MCP server for live financial webcast transcription and vocal stress analysis"
 readme = "README.md"
 license = "MIT"

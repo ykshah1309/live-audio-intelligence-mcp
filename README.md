@@ -1,5 +1,7 @@
 # live-audio-intelligence-mcp
 
+<!-- mcp-name: io.github.ykshah1309/live-audio-intelligence-mcp -->
+
 **Institutional-grade MCP server for live financial webcast transcription and vocal stress analysis.**
 
 Turns any live webcast URL (earnings calls, CNBC, investor days) into a real-time
